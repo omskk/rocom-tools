@@ -13,68 +13,53 @@ interface Skill {
   energyCost: number;
   power: number;
   effect: string;
+  learners?: Learner[];
 }
 
-interface Creature {
+interface Learner {
+  refType: string;
   creatureId: string;
-  name: string;
-  default: string[];
-  forms: Record<string, string[]>;
-  bossForms: Record<string, string[]>;
-  bossFormVariants: Record<string, Record<string, string[]>>;
+  creatureName: string;
+  displayName: string;
+  formName?: string;
 }
 
 interface SkillDetailClientProps {
   skillId: string;
 }
 
+const attributeMap: Record<string, string> = {
+  normal: '普通', grass: '草', fire: '火', water: '水', electric: '电',
+  ice: '冰', fighting: '格斗', poison: '毒', ground: '地面', flying: '飞行',
+  psychic: '超能', bug: '虫', rock: '岩石', ghost: '幽灵', dragon: '龙',
+  dark: '恶', steel: '钢', fairy: '妖精',
+};
+
+const categoryMap: Record<string, string> = {
+  physical: '物理', magical: '魔法', status: '状态',
+};
+
 export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [skill, setSkill] = useState<Skill | null>(null);
-  const [learners, setLearners] = useState<Creature[]>([]);
+  const [learners, setLearners] = useState<Learner[]>([]);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       setError('');
       try {
-        const [skillRes, learnsetRes] = await Promise.all([
-          fetch('/data/skills-master-list.json', { cache: 'no-cache' }),
-          fetch('/data/creature-skill-learnsets.json', { cache: 'no-cache' }),
-        ]);
-
+        const skillRes = await fetch('/data/skills-master-list.json', { cache: 'no-cache' });
         const skillData = await skillRes.json();
-        const learnsetData = await learnsetRes.json();
 
-        const foundSkill = skillData.skills.find(
-          (s: Skill) => s.skillId === skillId
-        );
+        const foundSkill = skillData.skills.find((s: Skill) => s.skillId === skillId);
         if (!foundSkill) {
           throw new Error('技能不存在');
         }
         setSkill(foundSkill);
-
-        // 查找学习该技能的精灵
-        const learnersList: Creature[] = [];
-        const creatures = learnsetData.creatures || [];
-
-        for (const creature of creatures as Creature[]) {
-          const learns =
-            creature.default?.includes(skillId) ||
-            Object.values(creature.forms || {}).some((arr) =>
-              arr.includes(skillId)
-            ) ||
-            Object.values(creature.bossForms || {}).some((arr) =>
-              arr.includes(skillId)
-            );
-
-          if (learns) {
-            learnersList.push(creature);
-          }
-        }
-        setLearners(learnersList);
+        setLearners(foundSkill.learners || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : '加载失败');
       } finally {
@@ -100,10 +85,7 @@ export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
         <div className="max-w-4xl mx-auto">
           <div className="text-center text-red-500">{error || '技能不存在'}</div>
           <div className="text-center mt-4">
-            <button
-              onClick={() => router.push('/skills')}
-              className="text-blue-500 hover:underline"
-            >
+            <button onClick={() => router.push('/skills')} className="text-blue-500 hover:underline">
               返回技能列表
             </button>
           </div>
@@ -119,15 +101,14 @@ export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
           <div className="flex items-center gap-4 mb-6">
             <h1 className="text-2xl font-bold">{skill.name}</h1>
           </div>
-
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="p-4 bg-gray-50 rounded-lg">
               <div className="text-sm text-gray-500">属性</div>
-              <div className="text-lg font-medium">{skill.attribute}</div>
+              <div className="text-lg font-medium">{attributeMap[skill.attribute] || skill.attribute}</div>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <div className="text-sm text-gray-500">分类</div>
-              <div className="text-lg font-medium">{skill.category}</div>
+              <div className="text-lg font-medium">{categoryMap[skill.category] || skill.category}</div>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <div className="text-sm text-gray-500">PP</div>
@@ -138,23 +119,22 @@ export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
               <div className="text-lg font-medium">{skill.power}</div>
             </div>
           </div>
-
           <div className="p-4 bg-gray-50 rounded-lg mb-6">
             <div className="text-sm text-gray-500">效果</div>
             <div className="mt-1">{skill.effect}</div>
           </div>
-
           <div className="mt-6">
             <h2 className="text-lg font-semibold mb-4">学习该技能的精灵</h2>
             {learners.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {learners.map((creature) => (
+                {learners.map((learner) => (
                   <Link
-                    key={creature.creatureId}
-                    href={`/atlas/${creature.creatureId}`}
+                    key={`${learner.refType}-${learner.creatureId}`}
+                    href={`/atlas/${learner.creatureId}`}
                     className="block p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
                   >
-                    <div className="font-medium">{creature.name}</div>
+                    <div className="font-medium">{learner.displayName}</div>
+                    <div className="text-xs text-gray-400">{learner.creatureName}</div>
                   </Link>
                 ))}
               </div>
@@ -162,7 +142,6 @@ export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
               <div className="text-gray-500">暂无精灵学习该技能</div>
             )}
           </div>
-
           <div className="mt-6">
             <Link href="/skills" className="text-blue-500 hover:underline">
               ← 返回技能列表
