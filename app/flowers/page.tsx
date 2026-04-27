@@ -20,15 +20,6 @@ function TimeInputGroup({ label, value, onChange, onEnter }: TimeInputGroupProps
   const hoursRef = useRef<HTMLInputElement>(null);
   const minutesRef = useRef<HTMLInputElement>(null);
 
-  // 验证并格式化数字
-  const formatNumber = (numStr: string, max: number): string => {
-    const num = parseInt(numStr, 10);
-    if (isNaN(num)) return '';
-    if (num < 0) return '00';
-    if (num > max) return String(max).padStart(2, '0');
-    return String(num).padStart(2, '0');
-  };
-
   // 处理输入
   const handleInputChange = (
     field: 'hours' | 'minutes',
@@ -37,30 +28,44 @@ function TimeInputGroup({ label, value, onChange, onEnter }: TimeInputGroupProps
   ) => {
     // 只保留数字
     const sanitized = inputValue.replace(/[^0-9]/g, '');
-    
     // 限制最大2位
     const limited = sanitized.slice(0, 2);
-    
-    // 更新值
+
+    // 如果直接输入2位数字，不格式化，保留原始输入
     onChange({ ...value, [field]: limited });
 
-    // 如果输入了2位数字，自动跳转到下一个输入框
-    if (limited.length === 2) {
-      if (field === 'hours') {
+    // 自动跳转逻辑：只有输入1位数字且大于2时才跳转（因为时间不可能超过23点/59分）
+    // 这样用户输入10-23时不会自动跳转，但输入3-9时会自动跳
+    if (limited.length === 1) {
+      const num = parseInt(limited, 10);
+      // 小时输入：如果输入3-9，直接跳到分钟（因为3x小时不存在）
+      // 分钟输入：如果输入6-9，直接跳到下一个（因为6x分钟不存在）
+      if (field === 'hours' && num >= 3 && num <= 9) {
         minutesRef.current?.focus();
-      } else if (onEnter) {
-        // 分钟输入完成，触发Enter回调
-        onEnter();
       }
     }
   };
 
-  // 处理失去焦点 - 自动补零
+  // 处理失去焦点 - 自动补零（只在1位数字时补零）
   const handleBlur = (field: 'hours' | 'minutes', max: number) => {
     const currentValue = value[field];
     if (currentValue === '' || currentValue === undefined) return;
     
-    const formatted = formatNumber(currentValue, max);
+    const num = parseInt(currentValue, 10);
+    if (isNaN(num)) return;
+    
+    let formatted: string;
+    if (num > max) {
+      // 超过最大值时设为最大值
+      formatted = String(max);
+    } else if (currentValue.length === 1) {
+      // 只有1位数字时才补零（如 "1" -> "01"）
+      // 这样用户输入 "10" 等两位数不会被改成 "010"
+      formatted = '0' + currentValue;
+    } else {
+      // 2位数字直接保留（如10,11,12...）
+      formatted = currentValue;
+    }
     onChange({ ...value, [field]: formatted });
   };
 
@@ -200,8 +205,12 @@ export default function FlowerCalculator() {
     const endNum = parseInt(endCount, 10);
 
     if (
-      isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM) ||
-      isNaN(startNum) || isNaN(endNum)
+      isNaN(startH) ||
+      isNaN(startM) ||
+      isNaN(endH) ||
+      isNaN(endM) ||
+      isNaN(startNum) ||
+      isNaN(endNum)
     ) {
       return null;
     }
@@ -209,11 +218,9 @@ export default function FlowerCalculator() {
     const startTotalMinutes = startH * 60 + startM;
     const endTotalMinutes = endH * 60 + endM;
     let diffMinutes = endTotalMinutes - startTotalMinutes;
-
     if (diffMinutes < 0) {
       diffMinutes += 24 * 60;
     }
-
     const diffHours = diffMinutes / 60;
     const countDiff = endNum - startNum;
 
@@ -268,16 +275,8 @@ export default function FlowerCalculator() {
         <div className="space-y-6">
           {/* Time Section */}
           <div className="grid grid-cols-2 gap-4">
-            <TimeInputGroup
-              label="开始时间"
-              value={startTime}
-              onChange={setStartTime}
-            />
-            <TimeInputGroup
-              label="结束时间"
-              value={endTime}
-              onChange={setEndTime}
-            />
+            <TimeInputGroup label="开始时间" value={startTime} onChange={setStartTime} />
+            <TimeInputGroup label="结束时间" value={endTime} onChange={setEndTime} />
           </div>
 
           {/* Count Section */}
@@ -306,7 +305,6 @@ export default function FlowerCalculator() {
                 <span className="text-4xl font-bold">{formatNumber(result.efficiency, 1)}</span>
                 <span className="text-lg ml-1">朵/小时</span>
               </div>
-
               <div className="mt-4 pt-4 border-t border-white/20 grid grid-cols-2 gap-4 text-center">
                 <div>
                   <p className="text-xs opacity-70">采集耗时</p>
