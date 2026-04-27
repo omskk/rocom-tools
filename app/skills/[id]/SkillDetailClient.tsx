@@ -96,7 +96,17 @@ export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-4">
+        {/* 返回按钮 */}
+        <Link
+          href="/skills"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          返回技能列表
+        </Link>
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center gap-4 mb-6">
             <h1 className="text-2xl font-bold">{skill.name}</h1>
@@ -129,7 +139,7 @@ export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {learners.map((learner) => (
                   <Link
-                    key={`${learner.refType}-${learner.creatureId}`}
+                    key={`${learner.refType}-${learner.creatureId}-${learner.formName || 'base'}`}
                     href={`/atlas/${learner.creatureId}`}
                     className="block p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
                   >
@@ -141,11 +151,6 @@ export default function SkillDetailClient({ skillId }: SkillDetailClientProps) {
             ) : (
               <div className="text-gray-500">暂无精灵学习该技能</div>
             )}
-          </div>
-          <div className="mt-6">
-            <Link href="/skills" className="text-blue-500 hover:underline">
-              ← 返回技能列表
-            </Link>
           </div>
         </div>
       </div>
